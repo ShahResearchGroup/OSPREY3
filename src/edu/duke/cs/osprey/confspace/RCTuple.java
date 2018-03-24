@@ -9,6 +9,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import edu.duke.cs.osprey.sparse.Subproblem;
+import edu.duke.cs.osprey.sparse.sequence.Sequence;
 
 /**
  *
@@ -120,6 +122,11 @@ public class RCTuple implements Serializable {
     	}
 
     	return true;
+    }
+    
+    public boolean consistentWith(Sequence otherSequence, Subproblem sourceProblem) {
+    	Sequence selfSequence = sourceProblem.getSequenceForConf(this);
+    	return selfSequence.consistentWith(otherSequence);
     }
     
     private int lookupRC(int queryPos)
@@ -264,6 +271,11 @@ public class RCTuple implements Serializable {
         newRCs.add(addedRC);
         
         return new RCTuple(newPos,newRCs);
+    }
+    
+    public int hashCode()
+    {
+    	return toString().hashCode();
     }
     
     private class RCPair implements Comparable<RCPair>{

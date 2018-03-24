@@ -3,6 +3,7 @@ package edu.duke.cs.osprey.sparse;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -12,6 +13,7 @@ import java.util.Map;
 
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.RCTuple;
+import edu.duke.cs.osprey.sparse.sequence.Sequence;
 import edu.duke.cs.osprey.tools.ResidueIndexMap;
 
 public class Subproblem {
@@ -78,19 +80,19 @@ public class Subproblem {
 		
 	}
 	
-	public int mapSubproblemConfToIndex(RCTuple conf) {
-		if(conf.size() < 1 || MSet.size() < 1)
+	public int mapSubproblemConfToIndex(RCTuple queryAssignment) {
+		if(queryAssignment.size() < 1 || MSet.size() < 1)
 			return 0;
-		int largestDesignIndex = Collections.max(conf.pos)+1;
+		int largestDesignIndex = Collections.max(queryAssignment.pos)+1;
 		int[] RCSpaceRCIndices = new int[largestDesignIndex];
 
 		Arrays.fill(RCSpaceRCIndices,-1);
 		int[] RCSpaceSizes = new int[largestDesignIndex];
 		Arrays.fill(RCSpaceSizes,1);
-		for(int tupleIndex = 0; tupleIndex < conf.size(); tupleIndex++) {
-			int pos = conf.pos.get(tupleIndex);
+		for(int tupleIndex = 0; tupleIndex < queryAssignment.size(); tupleIndex++) {
+			int pos = queryAssignment.pos.get(tupleIndex);
 			int PDBIndex = residueIndexMap.designIndexToPDBIndex(pos);
-			int RC = conf.RCs.get(tupleIndex);
+			int RC = queryAssignment.RCs.get(tupleIndex);
 			if(MSet.contains(PDBIndex)) {
 				
 				int subspaceRCIndex = getRCSpaceRCIndex(PDBIndex, RC);
@@ -127,6 +129,11 @@ public class Subproblem {
 		return subproblemIndex;
 	}
 	
+	public int mapSubproblemSeqToIndex(Sequence seq)
+	{
+		return mapSubproblemConfToIndex(residueIndexMap.createTemplateConfForSequence(seq));
+	}
+	
 	private int getRCSpaceRCIndex(int PDBIndex, int PDBSpaceRCIndex)
 	{
 		return PDBRCToSubspaceRCMap.get(PDBIndex).get(PDBSpaceRCIndex);
@@ -147,7 +154,7 @@ public class Subproblem {
 		}
 	}
 
-	public String getSequenceForConf(RCTuple conf)
+	public Sequence getSequenceForConf(RCTuple conf)
 	{
 		return residueIndexMap.getSequenceOfRCTuple(conf);
 	}
@@ -265,133 +272,126 @@ public class Subproblem {
 	}
 
 	public boolean isMULambdaAssignment (RCTuple queryAssignment) {
-		if(queryAssignment.size() != MULambdaSet.size())
-			return false;
-		for(int residueIndex : queryAssignment.pos)
-		{
-			if(!MULambdaSet.contains(residueIndexMap.designIndexToPDBIndex(residueIndex)))
-				return false;
-		}
-		return true;
+		return setEquals(queryAssignment.pos, MULambdaSet);
 	}
 	
 	public boolean isMAssignment (RCTuple queryAssignment) {
-		if(queryAssignment.size() != MSet.size())
+		return setEquals(queryAssignment.pos, MSet);
+	}
+	
+	private boolean setEquals(Collection<Integer> a, Collection<Integer> b)
+	{
+		if(a.size() != b.size())
 			return false;
-		for(int residueIndex : queryAssignment.pos)
+		for(int index : a)
 		{
-			if(!MSet.contains(residueIndexMap.designIndexToPDBIndex(residueIndex)))
+			if(!b.contains(residueIndexMap.designIndexToPDBIndex(index)))
 				return false;
 		}
 		return true;
 	}
+	
+	public boolean isMULambdaAssignment (Sequence queryAssignment) {
+		return setEquals(queryAssignment.residues(), MULambdaSet);
+	}
+	
+	public boolean isMAssignment (Sequence queryAssignment) {
+		return setEquals(queryAssignment.residues(), MSet);
+	}
 
 	public RCTuple extractSubproblemAssignment (RCTuple queryAssignment) {
-		RCTuple filteredTuple = new RCTuple();
-
-		for(int i = 0; i < queryAssignment.size(); i++)
-		{
-			int residueIndex = queryAssignment.pos.get(i);
-			if(MULambdaSet.contains(residueIndexMap.designIndexToPDBIndex(residueIndex)))
-				filteredTuple = filteredTuple.addRC(residueIndex, queryAssignment.RCs.get(i));
-		}
-		return filteredTuple;
+		return filterTuple(MULambdaSet, queryAssignment);
 	}
 	
 	public RCTuple extractSubproblemLambdaAssignment (RCTuple queryAssignment) {
-		RCTuple filteredTuple = new RCTuple();
-
-		for(int i = 0; i < queryAssignment.size(); i++)
-		{
-			int residueIndex = queryAssignment.pos.get(i);
-			if(lambdaSet.contains(residueIndexMap.designIndexToPDBIndex(residueIndex)))
-				filteredTuple = filteredTuple.addRC(residueIndex, queryAssignment.RCs.get(i));
-		}		
-		if(lambdaSet.size() != filteredTuple.size())
-		{
-			System.err.println("Tuple filter failed. Size is wrong.");
-			System.out.println("lambdaSet: "+lambdaSet);
-			filteredTuple = new RCTuple();
-
-			for(int i = 0; i < queryAssignment.size(); i++)
-			{
-				int residueIndex = queryAssignment.pos.get(i);
-				int PDBIndex = residueIndexMap.designIndexToPDBIndex(residueIndex);
-				if(lambdaSet.contains(PDBIndex))
-				{
-					System.out.println("Adding RC at design index "+residueIndex+", whose PDB Index is "+PDBIndex);
-					filteredTuple = filteredTuple.addRC(residueIndex, queryAssignment.RCs.get(i));
-				}
-			}	
-		}
-		assert(lambdaSet.size() == filteredTuple.size());
-
-		return filteredTuple;
+		return filterTuple(lambdaSet, queryAssignment);
 	}
-	
+
+
 	public RCTuple extractSubproblemMAssignment (RCTuple queryAssignment) {
-		if(queryAssignment.size() < 1)
-			return queryAssignment;
+		return filterTuple(MSet, queryAssignment);
+	}
+	
+	
+	public RCTuple extractSubproblemLAssignment (RCTuple queryAssignment) {
+		return filterTuple(LSet, queryAssignment);
+	}
+	
+	private RCTuple filterTuple (Set<Integer> residueSet, RCTuple queryAssignment) {
 		RCTuple filteredTuple = new RCTuple();
 
 		for(int i = 0; i < queryAssignment.size(); i++)
 		{
 			int residueIndex = queryAssignment.pos.get(i);
-			if(MSet.contains(residueIndexMap.designIndexToPDBIndex(residueIndex)))
+			if(residueSet.contains(residueIndexMap.designIndexToPDBIndex(residueIndex)))
 				filteredTuple = filteredTuple.addRC(residueIndex, queryAssignment.RCs.get(i));
 		}		
-		if(MSet.size() != filteredTuple.size())
+		if(residueSet.size() != filteredTuple.size())
 		{
 			System.err.println("Tuple filter failed. Size is wrong.");
-			System.out.println("MSet: "+MSet);
+			System.out.println("lambdaSet: "+residueSet);
 			filteredTuple = new RCTuple();
 
 			for(int i = 0; i < queryAssignment.size(); i++)
 			{
 				int residueIndex = queryAssignment.pos.get(i);
 				int PDBIndex = residueIndexMap.designIndexToPDBIndex(residueIndex);
-				if(MSet.contains(PDBIndex))
+				if(residueSet.contains(PDBIndex))
 				{
 					System.out.println("Adding RC at design index "+residueIndex+", whose PDB Index is "+PDBIndex);
 					filteredTuple = filteredTuple.addRC(residueIndex, queryAssignment.RCs.get(i));
 				}
 			}	
 		}
-		assert(MSet.size() == filteredTuple.size());
+		assert(residueSet.size() == filteredTuple.size());
 
 		return filteredTuple;
 	}
 	
 	
 	
+	public Sequence extractSubproblemAssignment (Sequence queryAssignment) {
+		return filterTuple(MULambdaSet, queryAssignment);
+	}
+	
+	public Sequence extractSubproblemLambdaAssignment (Sequence queryAssignment) {
+		return filterTuple(lambdaSet, queryAssignment);
+	}
+	
+	public Sequence extractSubproblemMAssignment (Sequence queryAssignment) {
+		return filterTuple(MSet, queryAssignment);
+	}
+	
+	public Sequence extractSubproblemLAssignment (Sequence queryAssignment) {
+		return filterTuple(LSet, queryAssignment);
+	}
+	
+	private Sequence filterTuple(Set<Integer> positions, Sequence queryAssignment)
+	{
+		Sequence filteredTuple = new Sequence();
 
-	public RCTuple extractSubproblemLAssignment (RCTuple queryAssignment) {
-		RCTuple filteredTuple = new RCTuple();
-
-		for(int i = 0; i < queryAssignment.size(); i++)
+		for(Integer residueIndex : queryAssignment.residues())
 		{
-			int residueIndex = queryAssignment.pos.get(i);
-			if(LSet.contains(residueIndexMap.designIndexToPDBIndex(residueIndex)))
-				filteredTuple = filteredTuple.addRC(residueIndex, queryAssignment.RCs.get(i));
+			if(positions.contains(residueIndexMap.designIndexToPDBIndex(residueIndex)))
+				filteredTuple.addAssignment(residueIndex, queryAssignment.getAAAt(residueIndex));
 		}		
-		if(LSet.size() != filteredTuple.size())
+		if(positions.size() != filteredTuple.size())
 		{
 			System.err.println("Tuple filter failed. Size is wrong.");
-			System.out.println("LSet: "+LSet);
-			filteredTuple = new RCTuple();
+			System.out.println("input set: "+positions);
+			filteredTuple = new Sequence();
 
-			for(int i = 0; i < queryAssignment.size(); i++)
+			for(Integer residueIndex : queryAssignment.residues())
 			{
-				int residueIndex = queryAssignment.pos.get(i);
 				int PDBIndex = residueIndexMap.designIndexToPDBIndex(residueIndex);
-				if(LSet.contains(PDBIndex))
+				if(positions.contains(PDBIndex))
 				{
 					System.out.println("Adding RC at design index "+residueIndex+", whose PDB Index is "+PDBIndex);
-					filteredTuple = filteredTuple.addRC(residueIndex, queryAssignment.RCs.get(i));
+					filteredTuple.addAssignment(residueIndex, queryAssignment.getAAAt(residueIndex));
 				}
 			}	
 		}
-		assert(LSet.size() == filteredTuple.size());
+		assert(positions.size() == filteredTuple.size());
 
 		return filteredTuple;
 	}
@@ -507,6 +507,16 @@ public class Subproblem {
 		}
 		return numConformations;
 	}
+	
+	public int getNumConfsForSequence (Sequence seq) {
+		int numConfs = 1;
+		for(int residueIndex : seq.residues())
+		{
+			numConfs *= residueIndexMap.getConfsForAAAtPos(residueIndex, seq.getAAAt(residueIndex));
+		}
+		// TODO Auto-generated method stub
+		return numConfs;
+	}
 
 	public boolean isRoot () {
 		return MSet.size() < 1;
@@ -521,6 +531,15 @@ public class Subproblem {
 		return lambdaAssignment.size() == lambdaSet.size()
 				|| (isInternalNode() && leftSubproblem.isValidConf(assignment));
 	}
+	
+	public boolean isValidSequence (Sequence assignment) {
+		Sequence lambdaAssignment =  extractSubproblemLambdaAssignment(assignment);
+		return lambdaAssignment.size() == lambdaSet.size()
+				|| (isInternalNode() && leftSubproblem.isValidSequence(assignment));
+	}
+
+
+
 
 
 }
