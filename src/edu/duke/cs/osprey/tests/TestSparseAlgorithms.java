@@ -1,34 +1,25 @@
 package edu.duke.cs.osprey.tests;
 
-import static org.junit.Assert.*;
-
 import java.io.File;
-import java.io.IOException;
 import java.math.BigInteger;
 
 import org.junit.Test;
 
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.ConfSpace;
-import edu.duke.cs.osprey.confspace.PositionConfSpace;
-import edu.duke.cs.osprey.confspace.RC;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
-import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.control.GMECFinder;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
-import edu.duke.cs.osprey.sparse.BranchDecomposedProblem;
 import edu.duke.cs.osprey.sparse.BranchTree;
 import edu.duke.cs.osprey.sparse.ConformationProcessor;
 import edu.duke.cs.osprey.sparse.PartialConformationEnergyFunction;
 import edu.duke.cs.osprey.sparse.ResidueInteractionGraph;
-import edu.duke.cs.osprey.sparse.SparseKStarScoreEvaluator;
 import edu.duke.cs.osprey.sparse.Subproblem;
 import edu.duke.cs.osprey.sparse.SubproblemConfEnumerator;
-import edu.duke.cs.osprey.sparse.SubproblemSeqEnumerator;
 import edu.duke.cs.osprey.sparse.TreeEdge;
 import edu.duke.cs.osprey.sparse.TreeNode;
 import edu.duke.cs.osprey.tools.ResidueIndexMap;
@@ -280,13 +271,6 @@ public class TestSparseAlgorithms  extends TestCase {
 	}
 
 	@Test
-	public void testComputeKStarScore()
-	{
-		generateFilesForRunSize(RUN_SIZES[0]);
-		runSparseKStarScoreComputation();
-	}
-
-	@Test
 	public void testEnumerate4Conformations()
 	{
 		generateFilesForRunSize(RUN_SIZES[0]);
@@ -307,31 +291,7 @@ public class TestSparseAlgorithms  extends TestCase {
 		runSparseConfEnumeration();
 	}
 	
-	private void runSparseKStarScoreComputation()
-	{
-		String runName = cfp.getParams().getValue("runName");
-		SearchProblem problem = cfp.getSearchProblem();
-		ConfSpace conformationSpace = problem.confSpace;
 
-
-		String bdFile = "test/1CC8Sparse/"+runName+"_bd";
-
-		BranchTree tree = new BranchTree(bdFile, problem);
-		TreeEdge rootEdge = tree.getRootEdge();
-		rootEdge.compactTree();
-		
-
-		Subproblem sparseProblem = new Subproblem(new RCs(searchSpace.pruneMat), rootEdge, resMap);
-		System.out.println(sparseProblem.printTreeDesign());
-		EnergyFunction efunction = searchSpace.fullConfE;
-		PartialConformationEnergyFunction peFunction = new PartialConformationEnergyFunction(searchSpace, efunction, conformationSpace);
-		SubproblemSeqEnumerator enumerator = new SubproblemSeqEnumerator(sparseProblem, peFunction);
-		sparseProblem.preprocess();
-		BigInteger totalConfs = sparseProblem.getSubtreeTESS();
-		BigInteger subproblemConfs = sparseProblem.getTotalLocalConformations();
-		
-		
-	}
 
 	private void runSparseConfEnumeration () {
 		String runName = cfp.getParams().getValue("runName");
