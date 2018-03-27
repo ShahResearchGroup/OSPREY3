@@ -283,9 +283,9 @@ public class SubproblemSeqEnumerator implements ConformationProcessor {
 	public void processConformation (RCTuple conformation) {
 		/*
 		 * Conformation processing pseudocode:
-		 * 1. Map conformation to M-sequence lambda heap
-		 * 2. Update M-sequence lambda heap for the right conf, as well as the multisequence lambda heap.
-		 * 3. 
+		 * 1. Map conformation to its M and lambda sequences
+		 * 2. Add conformation energy to its respective M Conf MS bound heap (one MS bound
+		 *       per M conf per lambda sequence)
 		 */
 		String sequence = sourceProblem.getSequenceForConf(conformation);
 		System.out.println("Processing "+conformation+", sequence ["+sequence+"]");
@@ -298,6 +298,15 @@ public class SubproblemSeqEnumerator implements ConformationProcessor {
 		{
 			/* Process partial score per conformation */
 		}
+
+		/*
+		 * Sometime after this, we need to:
+		 * 1. For each M sequence, contruct the heap of lambda sequences
+		 * 2. For each lambda sequence for each M conf, add the MS bounds for each lambda
+		 *      sequence to compute the overall MS bound for each lambda sequence
+		 *      given an M sequence.
+		 * 3. Insert these sequences into the M Sequence lambda sequence heap.
+		 */
 	}
 	
 	public double nextBestEnergy()
@@ -761,7 +770,7 @@ public class SubproblemSeqEnumerator implements ConformationProcessor {
 	
 	private class UniqueConfList extends LinkedList<ScoredAssignment>
 	{
-		private Set<ScoredAssignment> confSet = new TreeSet<ScoredAssignment>();
+		private Set<ScoredAssignment> confSet = new TreeSet<>();
 		@Override
 		public boolean add(ScoredAssignment conf)
 		{
